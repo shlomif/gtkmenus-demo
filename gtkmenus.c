@@ -759,7 +759,7 @@ activate (GApplication *app)
 
   builder = gtk_builder_new ();
 #if 1
-  gtk_builder_add_from_resource (builder, "/home/shlomif/gtkmenus-demo/ui/main.ui", &error);
+  gtk_builder_add_from_resource (builder, "/ui/main.ui", &error);
   if (error != NULL)
     {
       g_critical ("%s", error->message);

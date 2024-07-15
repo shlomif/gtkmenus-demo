@@ -11,6 +11,66 @@ static GtkWidget *source_view;
 static gchar *current_file = NULL;
 static GtkWidget *headerbar;
 
+enum {
+  NAME_COLUMN,
+  TITLE_COLUMN,
+  FILENAME_COLUMN,
+  FUNC_COLUMN,
+  STYLE_COLUMN,
+  NUM_COLUMNS
+};
+
+#define PACKAGE_VERSION "0.0.1"
+
+static void
+activate_about (GSimpleAction *action,
+                GVariant      *parameter,
+                gpointer       user_data)
+{
+  GtkApplication *app = user_data;
+  const gchar *authors[] = {
+    "The GTK+ Team",
+    NULL
+  };
+
+  gtk_show_about_dialog (GTK_WINDOW (gtk_application_get_active_window (app)),
+                         "program-name", "GTK+ Demo",
+                         "version", g_strdup_printf ("%s,\nRunning against GTK+ %d.%d.%d",
+                                                     PACKAGE_VERSION,
+                                                     gtk_get_major_version (),
+                                                     gtk_get_minor_version (),
+                                                     gtk_get_micro_version ()),
+                         "copyright", "(C) 1997-2013 The GTK+ Team",
+                         "license-type", GTK_LICENSE_LGPL_2_1,
+                         "website", "http://www.gtk.org",
+                         "comments", "Program to demonstrate GTK+ widgets",
+                         "authors", authors,
+                         "logo-icon-name", "gtk3-demo",
+                         "title", "About GTK+ Demo",
+                         NULL);
+}
+
+static void
+activate_quit (GSimpleAction *action,
+               GVariant      *parameter,
+               gpointer       user_data)
+{
+  GtkApplication *app = user_data;
+  GtkWidget *win;
+  GList *list, *next;
+
+  list = gtk_application_get_windows (app);
+  while (list)
+    {
+      win = list->data;
+      next = list->next;
+
+      gtk_widget_destroy (GTK_WIDGET (win));
+
+      list = next;
+    }
+}
+
 static GtkWidget *
 create_menu (gint depth)
 {
@@ -272,6 +332,413 @@ scrollbar_popup (GtkWidget *scrollbar, GtkWidget *menu)
   return TRUE;
 }
 
+static GtkWidget *create_text (GtkWidget **text_view, gboolean is_source);
+
+enum {
+  STATE_NORMAL,
+  STATE_IN_COMMENT
+};
+/* While not as cool as c-mode, this will do as a quick attempt at highlighting */
+static void
+fontify (GtkTextBuffer *source_buffer)
+{
+#if 0
+  GtkTextIter start_iter, next_iter, tmp_iter;
+  gint state;
+  gchar *text;
+  gchar *start_ptr, *end_ptr;
+  gchar *tag;
+
+  gtk_text_buffer_create_tag (source_buffer, "source",
+                              "font", "monospace",
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "comment",
+                              "foreground", "DodgerBlue",
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "type",
+                              "foreground", "ForestGreen",
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "string",
+                              "foreground", "RosyBrown",
+                              "weight", PANGO_WEIGHT_BOLD,
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "control",
+                              "foreground", "purple",
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "preprocessor",
+                              "style", PANGO_STYLE_OBLIQUE,
+                              "foreground", "burlywood4",
+                              NULL);
+  gtk_text_buffer_create_tag (source_buffer, "function",
+                              "weight", PANGO_WEIGHT_BOLD,
+                              "foreground", "DarkGoldenrod4",
+                              NULL);
+
+  gtk_text_buffer_get_bounds (source_buffer, &start_iter, &tmp_iter);
+  gtk_text_buffer_apply_tag_by_name (source_buffer, "source", &start_iter, &tmp_iter);
+
+  state = STATE_NORMAL;
+
+  gtk_text_buffer_get_iter_at_offset (source_buffer, &start_iter, 0);
+
+  next_iter = start_iter;
+  while (gtk_text_iter_forward_line (&next_iter))
+    {
+      gboolean start = TRUE;
+      start_ptr = text = gtk_text_iter_get_text (&start_iter, &next_iter);
+
+      do
+        {
+          parse_chars (start_ptr, &end_ptr, &state, &tag, start);
+
+          start = FALSE;
+          if (end_ptr)
+            {
+              tmp_iter = start_iter;
+              gtk_text_iter_forward_chars (&tmp_iter, end_ptr - start_ptr);
+            }
+          else
+            {
+              tmp_iter = next_iter;
+            }
+          if (tag)
+            gtk_text_buffer_apply_tag_by_name (source_buffer, tag, &start_iter, &tmp_iter);
+
+          start_iter = tmp_iter;
+          start_ptr = end_ptr;
+        }
+      while (end_ptr);
+
+      g_free (text);
+      start_iter = next_iter;
+    }
+#endif
+}
+
+static void
+add_data_tab (const gchar *demoname)
+{
+  gchar *resource_dir, *resource_name;
+  gchar **resources;
+  GtkWidget *widget, *label;
+  guint i;
+
+  resource_dir = g_strconcat ("/", demoname, NULL);
+  resources = g_resources_enumerate_children (resource_dir, 0, NULL);
+  if (resources == NULL)
+    {
+      g_free (resource_dir);
+      return;
+    }
+
+  for (i = 0; resources[i]; i++)
+    {
+      resource_name = g_strconcat (resource_dir, "/", resources[i], NULL);
+
+      widget = gtk_image_new_from_resource (resource_name);
+      if (gtk_image_get_pixbuf (GTK_IMAGE (widget)) == NULL &&
+          gtk_image_get_animation (GTK_IMAGE (widget)) == NULL)
+        {
+          GBytes *bytes;
+
+          /* So we've used the best API available to figure out it's
+           * not an image. Let's try something else then.
+           */
+          g_object_ref_sink (widget);
+          g_object_unref (widget);
+
+          bytes = g_resources_lookup_data (resource_name, 0, NULL);
+          g_assert (bytes);
+
+          if (g_utf8_validate (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes), NULL))
+            {
+              /* Looks like it parses as text. Dump it into a textview then! */
+              GtkTextBuffer *buffer;
+              GtkWidget *textview;
+
+              widget = create_text (&textview, FALSE);
+              buffer = gtk_text_buffer_new (NULL);
+              gtk_text_buffer_set_text (buffer, g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
+              if (g_str_has_suffix (resource_name, ".c"))
+                fontify (buffer);
+              gtk_text_view_set_buffer (GTK_TEXT_VIEW (textview), buffer);
+            }
+          else
+            {
+              g_warning ("Don't know how to display resource '%s'", resource_name);
+              widget = NULL;
+            }
+
+          g_bytes_unref (bytes);
+        }
+
+      gtk_widget_show_all (widget);
+      label = gtk_label_new (resources[i]);
+      gtk_widget_show (label);
+      gtk_notebook_append_page (GTK_NOTEBOOK (notebook), widget, label);
+      gtk_container_child_set (GTK_CONTAINER (notebook),
+                               GTK_WIDGET (widget),
+                               "tab-expand", TRUE,
+                               NULL);
+
+      g_free (resource_name);
+    }
+
+  g_strfreev (resources);
+  g_free (resource_dir);
+}
+
+static void
+remove_data_tabs (void)
+{
+  gint i;
+
+  for (i = gtk_notebook_get_n_pages (GTK_NOTEBOOK (notebook)) - 1; i > 1; i--)
+    gtk_notebook_remove_page (GTK_NOTEBOOK (notebook), i);
+}
+
+void
+load_file (const gchar *demoname,
+           const gchar *filename)
+{
+  GtkTextBuffer *info_buffer, *source_buffer;
+  GtkTextIter start, end;
+  char *resource_filename;
+  GError *err = NULL;
+  int state = 0;
+  gboolean in_para = 0;
+  gchar **lines;
+  GBytes *bytes;
+  gint i;
+
+  if (!g_strcmp0 (current_file, filename))
+    return;
+
+  remove_data_tabs ();
+
+  add_data_tab (demoname);
+
+  g_free (current_file);
+  current_file = g_strdup (filename);
+
+  info_buffer = gtk_text_buffer_new (NULL);
+  gtk_text_buffer_create_tag (info_buffer, "title",
+                              "font", "Sans 18",
+                              "pixels-below-lines", 10,
+                              NULL);
+
+  source_buffer = gtk_text_buffer_new (NULL);
+
+  resource_filename = g_strconcat ("/sources/", filename, NULL);
+  bytes = g_resources_lookup_data (resource_filename, 0, &err);
+  g_free (resource_filename);
+
+  if (bytes == NULL)
+    {
+      g_warning ("Cannot open source for %s: %s", filename, err->message);
+      g_error_free (err);
+      return;
+    }
+
+  lines = g_strsplit (g_bytes_get_data (bytes, NULL), "\n", -1);
+  g_bytes_unref (bytes);
+
+  gtk_text_buffer_get_iter_at_offset (info_buffer, &start, 0);
+  for (i = 0; lines[i] != NULL; i++)
+    {
+      gchar *p;
+      gchar *q;
+      gchar *r;
+
+      /* Make sure \r is stripped at the end for the poor windows people */
+      lines[i] = g_strchomp (lines[i]);
+
+      p = lines[i];
+      switch (state)
+        {
+        case 0:
+          /* Reading title */
+          while (*p == '/' || *p == '*' || g_ascii_isspace (*p))
+            p++;
+          r = p;
+          while (*r != '\0')
+            {
+              while (*r != '/' && *r != ':' && *r != '\0')
+                r++;
+              if (*r == '/')
+                {
+                  r++;
+                  p = r;
+                }
+              if (r[0] == ':' && r[1] == ':')
+                *r = '\0';
+            }
+          q = p + strlen (p);
+          while (q > p && g_ascii_isspace (*(q - 1)))
+            q--;
+
+
+          if (q > p)
+            {
+              int len_chars = g_utf8_pointer_to_offset (p, q);
+
+              end = start;
+
+              g_assert (strlen (p) >= q - p);
+              gtk_text_buffer_insert (info_buffer, &end, p, q - p);
+              start = end;
+
+              gtk_text_iter_backward_chars (&start, len_chars);
+              gtk_text_buffer_apply_tag_by_name (info_buffer, "title", &start, &end);
+
+              start = end;
+
+              while (*p && *p != '\n') p++;
+
+              state++;
+            }
+          break;
+
+        case 1:
+          /* Reading body of info section */
+          while (g_ascii_isspace (*p))
+            p++;
+          if (*p == '*' && *(p + 1) == '/')
+            {
+              gtk_text_buffer_get_iter_at_offset (source_buffer, &start, 0);
+              state++;
+            }
+          else
+            {
+              int len;
+
+              while (*p == '*' || g_ascii_isspace (*p))
+                p++;
+
+              len = strlen (p);
+              while (g_ascii_isspace (*(p + len - 1)))
+                len--;
+
+              if (len > 0)
+                {
+                  if (in_para)
+                    gtk_text_buffer_insert (info_buffer, &start, " ", 1);
+
+                  g_assert (strlen (p) >= len);
+                  gtk_text_buffer_insert (info_buffer, &start, p, len);
+                  in_para = 1;
+                }
+              else
+                {
+                  gtk_text_buffer_insert (info_buffer, &start, "\n", 1);
+                  in_para = 0;
+                }
+            }
+          break;
+
+        case 2:
+          /* Skipping blank lines */
+          while (g_ascii_isspace (*p))
+            p++;
+
+          if (!*p)
+            break;
+
+          p = lines[i];
+          state++;
+          /* Fall through */
+
+        case 3:
+          /* Reading program body */
+          gtk_text_buffer_insert (source_buffer, &start, p, -1);
+          if (lines[i+1] != NULL)
+            gtk_text_buffer_insert (source_buffer, &start, "\n", 1);
+          break;
+        }
+    }
+
+  g_strfreev (lines);
+
+  fontify (source_buffer);
+
+  gtk_text_view_set_buffer (GTK_TEXT_VIEW (source_view), source_buffer);
+  g_object_unref (source_buffer);
+
+  gtk_text_view_set_buffer (GTK_TEXT_VIEW (info_view), info_buffer);
+  g_object_unref (info_buffer);
+}
+
+static GtkWidget *
+create_text (GtkWidget **view,
+             gboolean    is_source)
+{
+  GtkWidget *scrolled_window;
+  GtkWidget *text_view;
+
+  scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
+                                  GTK_POLICY_AUTOMATIC,
+                                  GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),
+                                       GTK_SHADOW_NONE);
+
+  *view = text_view = gtk_text_view_new ();
+  g_object_set (text_view,
+                "left-margin", 20,
+                "right-margin", 20,
+                "top-margin", 20,
+                "bottom-margin", 20,
+                NULL);
+
+  gtk_text_view_set_editable (GTK_TEXT_VIEW (text_view), FALSE);
+  gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (text_view), FALSE);
+
+  gtk_container_add (GTK_CONTAINER (scrolled_window), text_view);
+
+  if (is_source)
+    {
+      gtk_text_view_set_monospace (GTK_TEXT_VIEW (text_view), TRUE);
+      gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text_view), GTK_WRAP_NONE);
+    }
+  else
+    {
+      /* Make it a bit nicer for text. */
+      gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text_view), GTK_WRAP_WORD);
+      gtk_text_view_set_pixels_above_lines (GTK_TEXT_VIEW (text_view), 2);
+      gtk_text_view_set_pixels_below_lines (GTK_TEXT_VIEW (text_view), 2);
+    }
+
+  return scrolled_window;
+}
+
+static void
+selection_cb (GtkTreeSelection *selection,
+              GtkTreeModel     *model)
+{
+  GtkTreeIter iter;
+  char *name;
+  char *filename;
+  char *title;
+
+  if (! gtk_tree_selection_get_selected (selection, NULL, &iter))
+    return;
+
+  gtk_tree_model_get (model, &iter,
+                      NAME_COLUMN, &name,
+                      TITLE_COLUMN, &title,
+                      FILENAME_COLUMN, &filename,
+                      -1);
+
+  if (filename)
+    load_file (name, filename);
+
+  gtk_header_bar_set_title (GTK_HEADER_BAR (headerbar), title);
+
+  g_free (name);
+  g_free (title);
+  g_free (filename);
+}
+
 static void
 activate (GApplication *app)
 {
@@ -329,9 +796,10 @@ activate (GApplication *app)
 
   g_signal_connect (scrollbar, "popup-menu", G_CALLBACK (scrollbar_popup), menu);
 
+#if 0
   load_file (gtk_demos[0].name, gtk_demos[0].filename);
-
   populate_model (model);
+#endif
 
   g_signal_connect (treeview, "row-activated", G_CALLBACK (row_activated_cb), model);
 
@@ -372,7 +840,9 @@ command_line (GApplication            *app,
 
   if (list)
     {
+#if 0
       list_demos ();
+#endif
       g_application_quit (app);
       return 0;
     }
@@ -406,7 +876,9 @@ command_line (GApplication            *app,
         }
     }
 
+#endif
 out:
+#if 0
   if (func)
     {
       demo = (func) (window);
@@ -421,6 +893,34 @@ out:
 
   return 0;
 }
+
+static void
+print_version (void)
+{
+  g_print ("gtk3-demo %d.%d.%d\n",
+           gtk_get_major_version (),
+           gtk_get_minor_version (),
+           gtk_get_micro_version ());
+}
+
+static int
+local_options (GApplication *app,
+               GVariantDict *options,
+               gpointer      data)
+{
+  gboolean version = FALSE;
+
+  g_variant_dict_lookup (options, "version", "b", &version);
+
+  if (version)
+    {
+      print_version ();
+      return 0;
+    }
+
+  return -1;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -452,6 +952,7 @@ main (int argc, char **argv)
   g_application_add_main_option (G_APPLICATION (app), "run", 0, 0, G_OPTION_ARG_STRING, "Run an example", "EXAMPLE");
   g_application_add_main_option (G_APPLICATION (app), "list", 0, 0, G_OPTION_ARG_NONE, "List examples", NULL);
   g_application_add_main_option (G_APPLICATION (app), "autoquit", 0, 0, G_OPTION_ARG_NONE, "Quit after a delay", NULL);
+#endif
 
   g_signal_connect (app, "startup", G_CALLBACK (startup), NULL);
   g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);

@@ -758,12 +758,14 @@ activate (GApplication *app)
   };
 
   builder = gtk_builder_new ();
-  gtk_builder_add_from_resource (builder, "/ui/main.ui", &error);
+#if 1
+  gtk_builder_add_from_resource (builder, "/home/shlomif/gtkmenus-demo/ui/main.ui", &error);
   if (error != NULL)
     {
       g_critical ("%s", error->message);
       exit (1);
     }
+#endif
 
   window = (GtkWindow *)gtk_builder_get_object (builder, "window");
   gtk_application_add_window (GTK_APPLICATION (app), window);

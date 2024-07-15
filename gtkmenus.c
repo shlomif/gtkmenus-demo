@@ -816,6 +816,10 @@ activate (GApplication *app)
   gtk_widget_show_all (GTK_WIDGET (window));
 
   g_object_unref (builder);
+
+  window = gtk_application_get_windows (GTK_APPLICATION (app))->data;
+
+  do_menus(GTK_WIDGET (window));
 }
 
 

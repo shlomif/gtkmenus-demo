@@ -306,16 +306,17 @@ run_example_for_row (GtkWidget    *window,
 }
 #endif
 
+#if 0
 static void
 row_activated_cb (GtkWidget         *tree_view,
                   GtkTreePath       *path,
                   GtkTreeViewColumn *column)
 {
-  GtkTreeIter iter;
-  GtkWidget *window;
-  GtkTreeModel *model;
+GtkTreeIter iter;
+GtkWidget *window;
+GtkTreeModel *model;
 
-  window = gtk_widget_get_toplevel (tree_view);
+window = gtk_widget_get_toplevel (tree_view);
   model = gtk_tree_view_get_model (GTK_TREE_VIEW (tree_view));
   gtk_tree_model_get_iter (model, &iter, path);
 
@@ -323,6 +324,7 @@ row_activated_cb (GtkWidget         *tree_view,
   run_example_for_row (window, model, &iter);
 #endif
 }
+#endif
 
 static void
 start_cb (GtkMenuItem *item, GtkWidget *scrollbar)
@@ -819,9 +821,9 @@ activate (GApplication *app)
 #if 0
   load_file (gtk_demos[0].name, gtk_demos[0].filename);
   populate_model (model);
-#endif
 
   g_signal_connect (treeview, "row-activated", G_CALLBACK (row_activated_cb), model);
+#endif
 
   widget = (GtkWidget *)gtk_builder_get_object (builder, "treeview-selection");
   g_signal_connect (widget, "changed", G_CALLBACK (selection_cb), model);

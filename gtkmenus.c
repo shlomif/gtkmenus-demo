@@ -211,19 +211,31 @@ do_menus (GtkWidget *do_widget)
   return window;
 }
 
+#if 0
 static void
 activate_run (GSimpleAction *action,
               GVariant      *parameter,
               gpointer       user_data)
+#else
+static void
+activate_run (GSimpleAction *,
+              GVariant      *,
+              gpointer)
+#endif
 {
+#if 0
   GtkWidget *window = user_data;
   GtkTreeSelection *selection;
   GtkTreeModel *model;
-#if 0
   GtkTreeIter iter;
 #endif
 
+#if 0
   selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview));
+#else
+  gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview));
+#endif
+
 #if 0
   if (gtk_tree_selection_get_selected (selection, &model, &iter))
     run_example_for_row (window, model, &iter);
@@ -247,6 +259,7 @@ startup (GApplication *app)
   g_object_unref (builder);
 }
 
+#if 0
 static void
 run_example_for_row (GtkWidget    *window,
                      GtkTreeModel *model,
@@ -291,6 +304,7 @@ run_example_for_row (GtkWidget    *window,
     }
 #endif
 }
+#endif
 
 static void
 row_activated_cb (GtkWidget         *tree_view,
@@ -305,7 +319,9 @@ row_activated_cb (GtkWidget         *tree_view,
   model = gtk_tree_view_get_model (GTK_TREE_VIEW (tree_view));
   gtk_tree_model_get_iter (model, &iter, path);
 
+#if 0
   run_example_for_row (window, model, &iter);
+#endif
 }
 
 static void

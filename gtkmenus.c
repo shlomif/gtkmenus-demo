@@ -23,8 +23,8 @@ enum {
 #define PACKAGE_VERSION "0.0.1"
 
 static void
-activate_about (GSimpleAction *action,
-                GVariant      *parameter,
+activate_about (GSimpleAction *,
+                GVariant      *,
                 gpointer       user_data)
 {
   GtkApplication *app = user_data;
@@ -51,8 +51,8 @@ activate_about (GSimpleAction *action,
 }
 
 static void
-activate_quit (GSimpleAction *action,
-               GVariant      *parameter,
+activate_quit (GSimpleAction *,
+               GVariant      *,
                gpointer       user_data)
 {
   GtkApplication *app = user_data;
@@ -107,7 +107,7 @@ create_menu (gint depth)
 }
 
 static void
-change_orientation (GtkWidget *button,
+change_orientation (GtkWidget *,
                     GtkWidget *menubar)
 {
   GtkWidget *parent;
@@ -219,7 +219,9 @@ activate_run (GSimpleAction *action,
   GtkWidget *window = user_data;
   GtkTreeSelection *selection;
   GtkTreeModel *model;
+#if 0
   GtkTreeIter iter;
+#endif
 
   selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview));
 #if 0

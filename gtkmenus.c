@@ -553,7 +553,7 @@ command_line (GApplication            *app,
   Demo *d, *c;
   GDoDemoFunc func = 0;
 #endif
-  GtkWidget *window, *demo;
+  GtkWidget *window;
 
   activate (app);
 
@@ -602,18 +602,6 @@ command_line (GApplication            *app,
 
 #endif
 out:
-#if 0
-  if (func)
-    {
-      demo = (func) (window);
-
-      gtk_window_set_transient_for (GTK_WINDOW (demo), GTK_WINDOW (window));
-      gtk_window_set_modal (GTK_WINDOW (demo), TRUE);
-    }
-
-  if (autoquit)
-    g_timeout_add_seconds (1, auto_quit, app);
-#endif
 
   return 0;
 }

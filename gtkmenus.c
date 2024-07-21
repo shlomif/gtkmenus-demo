@@ -272,7 +272,7 @@ window = gtk_widget_get_toplevel (tree_view);
 #endif
 
 static void
-start_cb (GtkMenuItem *item, GtkWidget *scrollbar)
+start_cb (GtkMenuItem *, GtkWidget *scrollbar)
 {
   GtkAdjustment *adj;
 
@@ -281,7 +281,7 @@ start_cb (GtkMenuItem *item, GtkWidget *scrollbar)
 }
 
 static void
-end_cb (GtkMenuItem *item, GtkWidget *scrollbar)
+end_cb (GtkMenuItem *, GtkWidget *scrollbar)
 {
   GtkAdjustment *adj;
 
@@ -290,7 +290,7 @@ end_cb (GtkMenuItem *item, GtkWidget *scrollbar)
 }
 
 static gboolean
-scrollbar_popup (GtkWidget *scrollbar, GtkWidget *menu)
+scrollbar_popup (GtkWidget *, GtkWidget *menu)
 {
   gtk_menu_popup_at_pointer (GTK_MENU (menu), NULL);
 
@@ -384,175 +384,6 @@ remove_data_tabs (void)
     gtk_notebook_remove_page (GTK_NOTEBOOK (notebook), i);
 }
 
-void
-load_file (const gchar *demoname,
-           const gchar *filename)
-{
-  GtkTextBuffer *info_buffer, *source_buffer;
-  GtkTextIter start, end;
-  char *resource_filename;
-  GError *err = NULL;
-  int state = 0;
-  gboolean in_para = 0;
-  gchar **lines;
-  GBytes *bytes;
-  gint i;
-
-  if (!g_strcmp0 (current_file, filename))
-    return;
-
-  remove_data_tabs ();
-
-  add_data_tab (demoname);
-
-  g_free (current_file);
-  current_file = g_strdup (filename);
-
-  info_buffer = gtk_text_buffer_new (NULL);
-  gtk_text_buffer_create_tag (info_buffer, "title",
-                              "font", "Sans 18",
-                              "pixels-below-lines", 10,
-                              NULL);
-
-  source_buffer = gtk_text_buffer_new (NULL);
-
-  resource_filename = g_strconcat ("/sources/", filename, NULL);
-  bytes = g_resources_lookup_data (resource_filename, 0, &err);
-  g_free (resource_filename);
-
-  if (bytes == NULL)
-    {
-      g_warning ("Cannot open source for %s: %s", filename, err->message);
-      g_error_free (err);
-      return;
-    }
-
-  lines = g_strsplit (g_bytes_get_data (bytes, NULL), "\n", -1);
-  g_bytes_unref (bytes);
-
-  gtk_text_buffer_get_iter_at_offset (info_buffer, &start, 0);
-  for (i = 0; lines[i] != NULL; i++)
-    {
-      gchar *p;
-      gchar *q;
-      gchar *r;
-
-      /* Make sure \r is stripped at the end for the poor windows people */
-      lines[i] = g_strchomp (lines[i]);
-
-      p = lines[i];
-      switch (state)
-        {
-        case 0:
-          /* Reading title */
-          while (*p == '/' || *p == '*' || g_ascii_isspace (*p))
-            p++;
-          r = p;
-          while (*r != '\0')
-            {
-              while (*r != '/' && *r != ':' && *r != '\0')
-                r++;
-              if (*r == '/')
-                {
-                  r++;
-                  p = r;
-                }
-              if (r[0] == ':' && r[1] == ':')
-                *r = '\0';
-            }
-          q = p + strlen (p);
-          while (q > p && g_ascii_isspace (*(q - 1)))
-            q--;
-
-
-          if (q > p)
-            {
-              int len_chars = g_utf8_pointer_to_offset (p, q);
-
-              end = start;
-
-              g_assert (strlen (p) >= q - p);
-              gtk_text_buffer_insert (info_buffer, &end, p, q - p);
-              start = end;
-
-              gtk_text_iter_backward_chars (&start, len_chars);
-              gtk_text_buffer_apply_tag_by_name (info_buffer, "title", &start, &end);
-
-              start = end;
-
-              while (*p && *p != '\n') p++;
-
-              state++;
-            }
-          break;
-
-        case 1:
-          /* Reading body of info section */
-          while (g_ascii_isspace (*p))
-            p++;
-          if (*p == '*' && *(p + 1) == '/')
-            {
-              gtk_text_buffer_get_iter_at_offset (source_buffer, &start, 0);
-              state++;
-            }
-          else
-            {
-              int len;
-
-              while (*p == '*' || g_ascii_isspace (*p))
-                p++;
-
-              len = strlen (p);
-              while (g_ascii_isspace (*(p + len - 1)))
-                len--;
-
-              if (len > 0)
-                {
-                  if (in_para)
-                    gtk_text_buffer_insert (info_buffer, &start, " ", 1);
-
-                  g_assert (strlen (p) >= len);
-                  gtk_text_buffer_insert (info_buffer, &start, p, len);
-                  in_para = 1;
-                }
-              else
-                {
-                  gtk_text_buffer_insert (info_buffer, &start, "\n", 1);
-                  in_para = 0;
-                }
-            }
-          break;
-
-        case 2:
-          /* Skipping blank lines */
-          while (g_ascii_isspace (*p))
-            p++;
-
-          if (!*p)
-            break;
-
-          p = lines[i];
-          state++;
-          /* Fall through */
-
-        case 3:
-          /* Reading program body */
-          gtk_text_buffer_insert (source_buffer, &start, p, -1);
-          if (lines[i+1] != NULL)
-            gtk_text_buffer_insert (source_buffer, &start, "\n", 1);
-          break;
-        }
-    }
-
-  g_strfreev (lines);
-
-  gtk_text_view_set_buffer (GTK_TEXT_VIEW (source_view), source_buffer);
-  g_object_unref (source_buffer);
-
-  gtk_text_view_set_buffer (GTK_TEXT_VIEW (info_view), info_buffer);
-  g_object_unref (info_buffer);
-}
-
 static GtkWidget *
 create_text (GtkWidget **view,
              gboolean    is_source)
@@ -614,8 +445,10 @@ selection_cb (GtkTreeSelection *selection,
                       FILENAME_COLUMN, &filename,
                       -1);
 
+#if 0
   if (filename)
     load_file (name, filename);
+#endif
 
   gtk_header_bar_set_title (GTK_HEADER_BAR (headerbar), title);
 

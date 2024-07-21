@@ -260,22 +260,6 @@ startup (GApplication *app)
 }
 
 
-#if 0
-static void
-row_activated_cb (GtkWidget         *tree_view,
-                  GtkTreePath       *path,
-                  GtkTreeViewColumn *column)
-{
-GtkTreeIter iter;
-GtkWidget *window;
-GtkTreeModel *model;
-
-window = gtk_widget_get_toplevel (tree_view);
-  model = gtk_tree_view_get_model (GTK_TREE_VIEW (tree_view));
-  gtk_tree_model_get_iter (model, &iter, path);
-}
-#endif
-
 static void
 start_cb (GtkMenuItem *, GtkWidget *scrollbar)
 {
@@ -306,15 +290,6 @@ enum {
   STATE_NORMAL,
   STATE_IN_COMMENT
 };
-
-static void
-remove_data_tabs (void)
-{
-  gint i;
-
-  for (i = gtk_notebook_get_n_pages (GTK_NOTEBOOK (notebook)) - 1; i > 1; i--)
-    gtk_notebook_remove_page (GTK_NOTEBOOK (notebook), i);
-}
 
 static void
 selection_cb (GtkTreeSelection *selection,

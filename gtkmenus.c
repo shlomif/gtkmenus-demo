@@ -235,11 +235,6 @@ activate_run (GSimpleAction *,
 #else
   gtk_tree_view_get_selection (GTK_TREE_VIEW (treeview));
 #endif
-
-#if 0
-  if (gtk_tree_selection_get_selected (selection, &model, &iter))
-    run_example_for_row (window, model, &iter);
-#endif
 }
 
 static void
@@ -259,52 +254,6 @@ startup (GApplication *app)
   g_object_unref (builder);
 }
 
-#if 0
-static void
-run_example_for_row (GtkWidget    *window,
-                     GtkTreeModel *model,
-                     GtkTreeIter  *iter)
-{
-#if 0
-  PangoStyle style;
-  GDoDemoFunc func;
-  GtkWidget *demo;
-
-  gtk_tree_model_get (GTK_TREE_MODEL (model),
-                      iter,
-                      FUNC_COLUMN, &func,
-                      STYLE_COLUMN, &style,
-                      -1);
-
-  if (func)
-    {
-      gtk_tree_store_set (GTK_TREE_STORE (model),
-                          iter,
-                          STYLE_COLUMN, (style == PANGO_STYLE_ITALIC ? PANGO_STYLE_NORMAL : PANGO_STYLE_ITALIC),
-                          -1);
-      demo = (func) (window);
-
-      if (demo != NULL)
-        {
-          CallbackData *cbdata;
-
-          cbdata = g_new (CallbackData, 1);
-          cbdata->model = model;
-          cbdata->path = gtk_tree_model_get_path (model, iter);
-
-          if (gtk_widget_is_toplevel (demo))
-            {
-              gtk_window_set_transient_for (GTK_WINDOW (demo), GTK_WINDOW (window));
-              gtk_window_set_modal (GTK_WINDOW (demo), TRUE);
-            }
-
-          g_signal_connect (demo, "destroy",
-                            G_CALLBACK (window_closed_cb), cbdata);
-        }
-    }
-#endif
-}
-#endif
 
 #if 0
 static void
@@ -319,10 +268,6 @@ GtkTreeModel *model;
 window = gtk_widget_get_toplevel (tree_view);
   model = gtk_tree_view_get_model (GTK_TREE_VIEW (tree_view));
   gtk_tree_model_get_iter (model, &iter, path);
-
-#if 0
-  run_example_for_row (window, model, &iter);
-#endif
 }
 #endif
 

@@ -303,82 +303,6 @@ enum {
   STATE_NORMAL,
   STATE_IN_COMMENT
 };
-/* While not as cool as c-mode, this will do as a quick attempt at highlighting */
-static void
-fontify (GtkTextBuffer *source_buffer)
-{
-#if 0
-  GtkTextIter start_iter, next_iter, tmp_iter;
-  gint state;
-  gchar *text;
-  gchar *start_ptr, *end_ptr;
-  gchar *tag;
-
-  gtk_text_buffer_create_tag (source_buffer, "source",
-                              "font", "monospace",
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "comment",
-                              "foreground", "DodgerBlue",
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "type",
-                              "foreground", "ForestGreen",
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "string",
-                              "foreground", "RosyBrown",
-                              "weight", PANGO_WEIGHT_BOLD,
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "control",
-                              "foreground", "purple",
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "preprocessor",
-                              "style", PANGO_STYLE_OBLIQUE,
-                              "foreground", "burlywood4",
-                              NULL);
-  gtk_text_buffer_create_tag (source_buffer, "function",
-                              "weight", PANGO_WEIGHT_BOLD,
-                              "foreground", "DarkGoldenrod4",
-                              NULL);
-
-  gtk_text_buffer_get_bounds (source_buffer, &start_iter, &tmp_iter);
-  gtk_text_buffer_apply_tag_by_name (source_buffer, "source", &start_iter, &tmp_iter);
-
-  state = STATE_NORMAL;
-
-  gtk_text_buffer_get_iter_at_offset (source_buffer, &start_iter, 0);
-
-  next_iter = start_iter;
-  while (gtk_text_iter_forward_line (&next_iter))
-    {
-      gboolean start = TRUE;
-      start_ptr = text = gtk_text_iter_get_text (&start_iter, &next_iter);
-
-      do
-        {
-          parse_chars (start_ptr, &end_ptr, &state, &tag, start);
-
-          start = FALSE;
-          if (end_ptr)
-            {
-              tmp_iter = start_iter;
-              gtk_text_iter_forward_chars (&tmp_iter, end_ptr - start_ptr);
-            }
-          else
-            {
-              tmp_iter = next_iter;
-            }
-          if (tag)
-            gtk_text_buffer_apply_tag_by_name (source_buffer, tag, &start_iter, &tmp_iter);
-
-          start_iter = tmp_iter;
-          start_ptr = end_ptr;
-        }
-      while (end_ptr);
-
-      g_free (text);
-      start_iter = next_iter;
-    }
-#endif
-}
 
 static void
 add_data_tab (const gchar *demoname)
@@ -424,8 +348,6 @@ add_data_tab (const gchar *demoname)
               widget = create_text (&textview, FALSE);
               buffer = gtk_text_buffer_new (NULL);
               gtk_text_buffer_set_text (buffer, g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
-              if (g_str_has_suffix (resource_name, ".c"))
-                fontify (buffer);
               gtk_text_view_set_buffer (GTK_TEXT_VIEW (textview), buffer);
             }
           else
@@ -623,8 +545,6 @@ load_file (const gchar *demoname,
     }
 
   g_strfreev (lines);
-
-  fontify (source_buffer);
 
   gtk_text_view_set_buffer (GTK_TEXT_VIEW (source_view), source_buffer);
   g_object_unref (source_buffer);

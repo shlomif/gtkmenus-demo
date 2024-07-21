@@ -168,6 +168,11 @@ do_menus (GtkWidget *do_widget)
 
       menu = create_menu (2);
 
+      menuitem = gtk_menu_item_new_with_mnemonic ("_File");
+      gtk_menu_item_set_submenu (GTK_MENU_ITEM (menuitem), menu);
+      gtk_menu_shell_append (GTK_MENU_SHELL (menubar), menuitem);
+      gtk_widget_show (menuitem);
+
       menuitem = gtk_menu_item_new_with_label ("test\nline2");
       gtk_menu_item_set_submenu (GTK_MENU_ITEM (menuitem), menu);
       gtk_menu_shell_append (GTK_MENU_SHELL (menubar), menuitem);

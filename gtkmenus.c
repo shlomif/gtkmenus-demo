@@ -302,83 +302,10 @@ scrollbar_popup (GtkWidget *, GtkWidget *menu)
   return TRUE;
 }
 
-static GtkWidget *create_text (GtkWidget **text_view, gboolean is_source);
-
 enum {
   STATE_NORMAL,
   STATE_IN_COMMENT
 };
-
-static void
-add_data_tab (const gchar *demoname)
-{
-  gchar *resource_dir, *resource_name;
-  gchar **resources;
-  GtkWidget *widget, *label;
-  guint i;
-
-  resource_dir = g_strconcat ("/", demoname, NULL);
-  resources = g_resources_enumerate_children (resource_dir, 0, NULL);
-  if (resources == NULL)
-    {
-      g_free (resource_dir);
-      return;
-    }
-
-  for (i = 0; resources[i]; i++)
-    {
-      resource_name = g_strconcat (resource_dir, "/", resources[i], NULL);
-
-      widget = gtk_image_new_from_resource (resource_name);
-      if (gtk_image_get_pixbuf (GTK_IMAGE (widget)) == NULL &&
-          gtk_image_get_animation (GTK_IMAGE (widget)) == NULL)
-        {
-          GBytes *bytes;
-
-          /* So we've used the best API available to figure out it's
-           * not an image. Let's try something else then.
-           */
-          g_object_ref_sink (widget);
-          g_object_unref (widget);
-
-          bytes = g_resources_lookup_data (resource_name, 0, NULL);
-          g_assert (bytes);
-
-          if (g_utf8_validate (g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes), NULL))
-            {
-              /* Looks like it parses as text. Dump it into a textview then! */
-              GtkTextBuffer *buffer;
-              GtkWidget *textview;
-
-              widget = create_text (&textview, FALSE);
-              buffer = gtk_text_buffer_new (NULL);
-              gtk_text_buffer_set_text (buffer, g_bytes_get_data (bytes, NULL), g_bytes_get_size (bytes));
-              gtk_text_view_set_buffer (GTK_TEXT_VIEW (textview), buffer);
-            }
-          else
-            {
-              g_warning ("Don't know how to display resource '%s'", resource_name);
-              widget = NULL;
-            }
-
-          g_bytes_unref (bytes);
-        }
-
-      gtk_widget_show_all (widget);
-      label = gtk_label_new (resources[i]);
-      gtk_widget_show (label);
-      gtk_notebook_append_page (GTK_NOTEBOOK (notebook), widget, label);
-      gtk_container_child_set (GTK_CONTAINER (notebook),
-                               GTK_WIDGET (widget),
-                               "tab-expand", TRUE,
-                               NULL);
-
-      g_free (resource_name);
-    }
-
-  g_strfreev (resources);
-  g_free (resource_dir);
-}
 
 static void
 remove_data_tabs (void)
@@ -387,49 +314,6 @@ remove_data_tabs (void)
 
   for (i = gtk_notebook_get_n_pages (GTK_NOTEBOOK (notebook)) - 1; i > 1; i--)
     gtk_notebook_remove_page (GTK_NOTEBOOK (notebook), i);
-}
-
-static GtkWidget *
-create_text (GtkWidget **view,
-             gboolean    is_source)
-{
-  GtkWidget *scrolled_window;
-  GtkWidget *text_view;
-
-  scrolled_window = gtk_scrolled_window_new (NULL, NULL);
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
-  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),
-                                       GTK_SHADOW_NONE);
-
-  *view = text_view = gtk_text_view_new ();
-  g_object_set (text_view,
-                "left-margin", 20,
-                "right-margin", 20,
-                "top-margin", 20,
-                "bottom-margin", 20,
-                NULL);
-
-  gtk_text_view_set_editable (GTK_TEXT_VIEW (text_view), FALSE);
-  gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (text_view), FALSE);
-
-  gtk_container_add (GTK_CONTAINER (scrolled_window), text_view);
-
-  if (is_source)
-    {
-      gtk_text_view_set_monospace (GTK_TEXT_VIEW (text_view), TRUE);
-      gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text_view), GTK_WRAP_NONE);
-    }
-  else
-    {
-      /* Make it a bit nicer for text. */
-      gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (text_view), GTK_WRAP_WORD);
-      gtk_text_view_set_pixels_above_lines (GTK_TEXT_VIEW (text_view), 2);
-      gtk_text_view_set_pixels_below_lines (GTK_TEXT_VIEW (text_view), 2);
-    }
-
-  return scrolled_window;
 }
 
 static void
